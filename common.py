@@ -3,7 +3,6 @@ import json
 import logging
 import sqlite3
 import time
-from pathlib import Path
 
 logging.basicConfig(
     level=logging.INFO,
@@ -16,11 +15,6 @@ def get_logger(name: str) -> logging.Logger:
 
 
 def init_db(path: str, schema: str, check_same_thread: bool = True) -> sqlite3.Connection:
-    """Initialize SQLite with WAL mode (good for edge devices).
-
-    Set check_same_thread=False when the connection will be shared
-    across threads (e.g. Flask's threaded dev server).
-    """
     conn = sqlite3.connect(path, timeout=10, check_same_thread=check_same_thread)
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=NORMAL")
@@ -35,6 +29,7 @@ def now_ms() -> int:
 
 def dumps(obj) -> str:
     return json.dumps(obj, separators=(",", ":"))
+
 
 EDGE_SCHEMA = """
 CREATE TABLE IF NOT EXISTS readings (

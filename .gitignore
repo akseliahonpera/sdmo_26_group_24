@@ -216,3 +216,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# sertifikaatit ja database
+test_certificate/
+*.pem
+*.db
+*.db-wal
+*.db-shm
+.venv/
+__pycache__/
