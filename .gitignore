@@ -2,7 +2,6 @@
 edge_node.db
 
 #esp generated
-sdkconfig
 sdkconfig.old
 
 # Byte-compiled / optimized / DLL files
