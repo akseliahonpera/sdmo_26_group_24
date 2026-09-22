@@ -1,4 +1,4 @@
-FROM espressif/idf:latest
+FROM espressif/idf:v6.1
 
 RUN apt-get update && \
     apt-get install -y git ninja-build libgcrypt20-dev libslirp-dev \
@@ -11,10 +11,15 @@ RUN git clone --depth 1 https://github.com/espressif/qemu.git qemu
 
 WORKDIR /opt/qemu
 
-RUN ./configure \
-    --target-list=riscv32-softmmu \
+RUN ./configure --target-list=xtensa-softmmu \
     --enable-gcrypt \
-    --enable-slirp
+    --enable-slirp \
+    --enable-debug \
+    --disable-strip \
+    --disable-user \
+    --disable-capstone \
+    --disable-vnc \
+    --disable-gtk
 
 RUN ninja -C build
 
