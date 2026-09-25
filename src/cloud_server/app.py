@@ -10,8 +10,8 @@ from flask import Flask, jsonify, request
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import SQLAlchemyError
 
-from common import get_logger
 from cloud_server import db
+from cloud_server.utils import get_logger
 from cloud_server.models import Reading
 
 log = get_logger("cloud")
