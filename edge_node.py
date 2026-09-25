@@ -1,18 +1,45 @@
-"""Edge node: simulates a sensor device with a local SQLite buffer."""
+"""Edge node: reads a sensor and POSTs readings to the gateway over HTTPS.
+
+No local database. A small in-memory retry queue (max 100) absorbs
+short gateway outages; anything beyond that is dropped.
+"""
 import random
 import signal
+import ssl
 import sys
 import time
+from collections import deque
 
-from common import get_logger, init_db, now_ms, dumps, EDGE_SCHEMA
+import requests
+from requests.adapters import HTTPAdapter
+
+from common import get_logger, now_ms, dumps
 
 log = get_logger("edge-node")
-DB_PATH = "edge_node.db"
-MAX_BUFFER = 500
-SAMPLE_INTERVAL = 1.0  # seconds
+
+GATEWAY_URL = "https://127.0.0.1:5001/api/reading"
+CERT_PATH = "test_certificate/cert.pem"
+SAMPLE_INTERVAL = 1.0
 DEVICE_ID = "sensor-001"
+PENDING_MAX = 100
 
 _running = True
+pending = deque(maxlen=PENDING_MAX)
+
+
+class TLS12Adapter(HTTPAdapter):
+    """Force outbound HTTPS to TLS 1.2 only (simulates an older client)."""
+    def init_poolmanager(self, *args, **kwargs):
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+        ctx.maximum_version = ssl.TLSVersion.TLSv1_2
+        ctx.load_verify_locations(CERT_PATH)
+        kwargs["ssl_context"] = ctx
+        return super().init_poolmanager(*args, **kwargs)
+
+
+_session = requests.Session()
+_session.mount("https://", TLS12Adapter())
 
 
 def _shutdown(*_):
@@ -22,7 +49,6 @@ def _shutdown(*_):
 
 
 def read_sensor():
-    """Mock sensor read — replace with real hardware call."""
     return {
         "device_id": DEVICE_ID,
         "ts": now_ms(),
@@ -31,40 +57,44 @@ def read_sensor():
     }
 
 
+def try_send(reading) -> bool:
+    try:
+        r = _session.post(GATEWAY_URL, json=reading, timeout=2)
+        r.raise_for_status()
+        return True
+    except requests.RequestException as e:
+        log.warning("Gateway unreachable: %s", e)
+        return False
+
+
+def flush_pending():
+    while pending:
+        if try_send(pending[0]):
+            pending.popleft()
+        else:
+            break
+
+
 def main():
     signal.signal(signal.SIGINT, _shutdown)
     signal.signal(signal.SIGTERM, _shutdown)
-
-    conn = init_db(DB_PATH, EDGE_SCHEMA)
-    log.info("Edge node %s started (db=%s)", DEVICE_ID, DB_PATH)
+    log.info("Edge node %s started, posting to %s (TLS 1.2)", DEVICE_ID, GATEWAY_URL)
 
     while _running:
         reading = read_sensor()
 
-        # Enforce buffer cap: drop oldest unsynced if full
-        count = conn.execute(
-            "SELECT COUNT(*) FROM readings WHERE synced=0"
-        ).fetchone()[0]
-        if count >= MAX_BUFFER:
-            conn.execute(
-                "DELETE FROM readings WHERE id IN "
-                "(SELECT id FROM readings WHERE synced=0 ORDER BY id LIMIT 10)"
-            )
-            log.warning("Buffer full — dropped 10 oldest unsynced readings")
-
-        conn.execute(
-            "INSERT INTO readings (device_id, ts, temperature, humidity) "
-            "VALUES (?, ?, ?, ?)",
-            (reading["device_id"], reading["ts"],
-             reading["temperature"], reading["humidity"]),
-        )
-        conn.commit()
-        log.info("Reading: %s", dumps(reading))
+        if try_send(reading):
+            log.info("Sent: %s", dumps(reading))
+            flush_pending()
+        else:
+            if len(pending) == PENDING_MAX:
+                log.warning("Queue full — dropping oldest reading")
+            pending.append(reading)
+            log.info("Queued locally (%d pending)", len(pending))
 
         time.sleep(SAMPLE_INTERVAL)
 
-    conn.close()
-    log.info("Edge node stopped")
+    log.info("Edge node stopped, %d readings still queued (lost)", len(pending))
 
 
 if __name__ == "__main__":

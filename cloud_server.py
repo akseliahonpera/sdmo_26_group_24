@@ -1,7 +1,9 @@
-"""Cloud server: receives readings from gateways, stores & aggregates them."""
+"""Cloud server: receives readings from gateways over HTTPS (TLS 1.2)."""
+import ssl
+
 from flask import Flask, jsonify, request
 
-from common import get_logger, init_db, dumps
+from common import get_logger, init_db
 
 log = get_logger("cloud")
 DB_PATH = "cloud.db"
@@ -68,19 +70,6 @@ def stats():
     ])
 
 
-@app.route("/api/readings/<device_id>")
-def readings(device_id):
-    limit = min(int(request.args.get("limit", 100)), 1000)
-    rows = conn.execute(
-        "SELECT ts, temperature, humidity FROM readings "
-        "WHERE device_id=? ORDER BY ts DESC LIMIT ?",
-        (device_id, limit),
-    ).fetchall()
-    return jsonify([
-        {"ts": r[0], "temperature": r[1], "humidity": r[2]} for r in rows
-    ])
-
-
 @app.route("/health")
 def health():
     return jsonify({"status": "ok"})
@@ -89,8 +78,15 @@ def health():
 def main():
     global conn
     conn = init_db(DB_PATH, SCHEMA, check_same_thread=False)
-    log.info("Cloud server starting on :5000")
-    app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)
+
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+    ctx.maximum_version = ssl.TLSVersion.TLSv1_2
+    ctx.load_cert_chain(certfile="test_certificate/cert.pem", keyfile="test_certificate/key.pem")
+
+    log.info("Cloud server starting on https://0.0.0.0:5000 (TLS 1.2)")
+    app.run(host="0.0.0.0", port=5000, debug=False, threaded=True,
+            ssl_context=ctx)
 
 
 if __name__ == "__main__":
