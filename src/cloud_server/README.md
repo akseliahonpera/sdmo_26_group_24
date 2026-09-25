@@ -3,7 +3,64 @@
 Receives sensor readings from edge gateways, stores them in MySQL and serves aggregates over a small JSON API.
 MySQL runs in Docker; the Flask app runs directly on your machine.
 
-All files specific to this service live in this folder. Shared code (`common.py`) lives in the repo root.
+The project is now laid out under `src/`, so the app package lives in `src/cloud_server` and shared code lives in `src/common.py`.
+
+## Required commands to start the cloud server
+
+Run these from the repository root:
+
+```bash
+# 1) Create the local environment file
+cp src/cloud_server/.env.example src/cloud_server/.env
+
+# 2) Create and activate a virtual environment
+python -m venv .venv
+source .venv/bin/activate
+
+# 3) Install dependencies
+pip install -r requirements.txt
+pip install -r src/cloud_server/requirements.txt
+
+# 4) Start MySQL (from the project root using the service folder)
+cd src/cloud_server
+docker compose up -d --wait
+cd ../..
+
+# 5) Start the Flask server
+cd src
+python -m cloud_server.app
+```
+
+Then check the health endpoint:
+
+```bash
+curl http://localhost:5000/health
+```
+
+## Repo layout
+
+```text
+.
+├── README.md
+├── requirements.txt
+├── src/
+│   ├── common.py
+│   ├── edge_gateway.py
+│   ├── edge_node.py
+│   ├── cloud_server/
+│   │   ├── __init__.py
+│   │   ├── app.py
+│   │   ├── db.py
+│   │   ├── models.py
+│   │   ├── docker-compose.yml
+│   │   ├── .env.example
+│   │   ├── requirements.txt
+│   │   └── README.md
+│   └── __pycache__/
+├── tests/
+│   └── tests.py
+└── .venv/
+```
 
 ## Prerequisites
 
@@ -21,35 +78,49 @@ python --version      # use python3 on macOS/Linux
 
 ## Quick start
 
-Run these from the **repository root** unless stated otherwise.
+Run these from the repository root unless stated otherwise.
 
 ```bash
 # 1. Clone
 git clone <REPO_URL>
 cd <REPO_FOLDER>
 
-# 2. Create your local config (edit the passwords if you like)
-cp cloud_server/.env.example cloud_server/.env      # Windows cmd: copy cloud_server\.env.example cloud_server\.env
+# 2. Create your local config
+cp src/cloud_server/.env.example src/cloud_server/.env
+# Windows PowerShell: Copy-Item src/cloud_server/.env.example src/cloud_server/.env
 
-# 3. Start MySQL and wait until it's healthy (first start takes ~30s)
-cd cloud_server
-docker compose up -d --wait
-cd ..
-
-# 4. Create a virtual environment (in the repo root) and install dependencies
+# 3. Create a virtual environment and install dependencies
 python -m venv .venv
-source .venv/bin/activate                            # Windows PowerShell: .venv\Scripts\Activate.ps1
-pip install -r cloud_server/requirements.txt
+source .venv/bin/activate                  # Windows PowerShell: .venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+pip install -r src/cloud_server/requirements.txt
 
-# 5. Run the server from the repo root (creates the table automatically)
+# 4. Start MySQL and wait until it's healthy (first start takes ~30s)
+cd src/cloud_server
+docker compose up -d --wait
+cd ../..
+
+# 5. Run the server from the repo root
+# Linux/macOS:
+export PYTHONPATH=src
+cd ..
 python -m cloud_server.app
+
+# Windows PowerShell:
+# $env:PYTHONPATH = "src"
+# cd .\src\cloud_server
+# docker compose up -d --wait
+# cd ..\..
+# python -m cloud_server.app
 ```
 
 The server listens on http://localhost:5000. Check it with `curl localhost:5000/health`.
 
+> If you run from the `src/` directory instead, `python -m cloud_server.app` also works without setting `PYTHONPATH`.
+
 ## Configuration
 
-Settings are read from `cloud_server/.env` (copied from `.env.example`). The same file configures the MySQL container and the app.
+Settings are read from `src/cloud_server/.env` (copied from `.env.example`). The same file configures the MySQL container and the app.
 
 | Variable | Default | Used by | Description |
 |---|---|---|---|
@@ -231,7 +302,7 @@ Things worth knowing:
 
 ## Look inside the database
 
-From the `cloud_server/` folder:
+From the `src/cloud_server/` folder:
 
 ```bash
 docker compose exec mysql mysql -u cloud_user -p cloud_db
@@ -239,32 +310,40 @@ docker compose exec mysql mysql -u cloud_user -p cloud_db
 #   SELECT * FROM readings;
 ```
 
+## Troubleshooting
+
+- **`ModuleNotFoundError: No module named 'common'`**: run the app with `PYTHONPATH=src` or from the `src/` folder.
+- **`ModuleNotFoundError` for anything else**: activate the venv and re-run `pip install -r requirements.txt` and `pip install -r src/cloud_server/requirements.txt`.
+- **`Can't connect to MySQL server` / `/health` returns 503**: make sure Docker Desktop is running and `docker compose ps` in `src/cloud_server/` shows the container as healthy.
+- **`Access denied for user`**: if you changed `.env` after the first startup, recreate the MySQL volume with `docker compose down -v`.
+- **`Port is already allocated`**: another service is using port 3306; update `MYSQL_PORT` in `.env` to `3307` and restart.
+
 ## Everyday commands
 
-Run the Docker commands from the `cloud_server/` folder.
+Run these from the repository root. The Docker compose file is inside [src/cloud_server](src/cloud_server), so use that path explicitly.
 
 | Task | Command |
 |---|---|
-| Start MySQL | `docker compose up -d --wait` |
-| Stop MySQL (keeps data) | `docker compose stop` |
-| Stop and remove container (keeps data) | `docker compose down` |
-| View MySQL logs | `docker compose logs -f mysql` |
-| **Wipe all data and start fresh** | `docker compose down -v` |
-| Run the server (from the repo root) | `python -m cloud_server.app` |
+| Start MySQL | `cd src/cloud_server && docker compose up -d --wait` |
+| Stop MySQL (keeps data) | `cd src/cloud_server && docker compose stop` |
+| Stop and remove container (keeps data) | `cd src/cloud_server && docker compose down` |
+| View MySQL logs | `cd src/cloud_server && docker compose logs -f mysql` |
+| **Wipe all data and start fresh** | `cd src/cloud_server && docker compose down -v` |
+| Run the server | `PYTHONPATH=src python -m cloud_server.app` |
 
 ## Troubleshooting
 
-- **"port is already allocated" / MySQL won't start:** something else uses port 3306 (a local MySQL, or another service in this repo). Set `MYSQL_PORT=3307` in `cloud_server/.env`, then `docker compose up -d --wait`.
-- **`Access denied for user`:** the MySQL credentials in `.env` are only applied the *first* time the data volume is created. If you changed them afterwards, run `docker compose down -v` in `cloud_server/` and start again (this deletes the data).
-- **`Can't connect to MySQL server` / `/health` returns 503:** check that Docker Desktop is running and `docker compose ps` (in `cloud_server/`) shows the container as `healthy`.
-- **`.env` changes have no effect on the app:** restart the server (`python -m cloud_server.app`).
-- **`ModuleNotFoundError: No module named 'common'`:** run the server from the repository root with `python -m cloud_server.app`. Running `python cloud_server/app.py` doesn't work because `common.py` lives in the root. In an IDE, set the working directory to the repo root.
-- **`ModuleNotFoundError` for anything else:** activate the virtual environment and re-run `pip install -r cloud_server/requirements.txt`.
+- **`ModuleNotFoundError: No module named 'common'`**: run the app with `PYTHONPATH=src` from the repo root, or run it from inside [src](src).
+- **`ModuleNotFoundError` for anything else**: activate the venv and re-run `pip install -r requirements.txt` and `pip install -r src/cloud_server/requirements.txt`.
+- **`Can't connect to MySQL server` / `/health` returns 503**: make sure Docker Desktop is running and `cd src/cloud_server && docker compose ps` shows the container as healthy.
+- **`Access denied for user`**: if you changed `.env` after the first startup, recreate the MySQL volume with `cd src/cloud_server && docker compose down -v`.
+- **`Port is already allocated`**: another service is using port 3306; update `MYSQL_PORT` in `src/cloud_server/.env` to `3307` and restart.
+- **`.env` changes have no effect on the app**: restart the server with `PYTHONPATH=src python -m cloud_server.app`.
 
 ## Files in this folder
 
 ```
-cloud_server/
+src/cloud_server/
 ├── __init__.py
 ├── app.py               # Flask routes and request validation
 ├── models.py            # SQLAlchemy ORM model (Reading)
