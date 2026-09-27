@@ -2,7 +2,9 @@ FROM espressif/idf:v6.1
 
 RUN apt-get update && \
     apt-get install -y git ninja-build libgcrypt20-dev libslirp-dev \
-    libglib2.0-dev libpixman-1-dev libfdt-dev pkg-config && \
+    libglib2.0-dev libpixman-1-dev libfdt-dev pkg-config \ 
+    socat \ 
+    && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt
