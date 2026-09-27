@@ -1,15 +1,19 @@
-> [!NOTE]
-> Promts used to generate these instructions and other content in ./firmware
+
+# Preamble
+
+***THIS FILE IS ONLY FOR REPORTING AND PROCESS HISTORY!***
+
+***VIEW [README](./REAMDE.md) for instructions.***
+
+
+This .md file contains the description on how the esp32-demo setup was built. 
+
+Shared promts were used to generate most of the content in esp32-demo. 
+Development was done in multiple session and some steps required a lot of iteration so not all of those promts are included.
+
+# Prompting ChatGPT
 
 Create a containerized esp32 simulator and a script that flashes wanted software to the simulated device
-
-...
-
-simplify more to an step by step process
-
-...
-
-The flash.bin doesnt exist. Error: root@c84652026ce6:/workspace# qemu-system-riscv32 \ -nographic \ -icount 3 \ -machine esp32c3 \ -drive file=firmware/build/flash.bin,if=mtd,format=raw qemu-system-riscv32: -drive file=firmware/build/flash.bin,if=mtd,format=raw: Could not open 'firmware/build/flash.bin': No such file or directory
 
 ...
 
@@ -19,10 +23,6 @@ qemu-system-riscv32: Drive size error: only 2, 4, 8, and 16MB images are support
 qemu-system-riscv32: -drive file=build/flash.bin,if=mtd,format=raw: machine type does not support if=mtd,bus=0,unit=0
 
 update steps with a fix
-
-...
-
-manged to get it working on gemu. How to stop qemu run?
 
 ...
 
@@ -37,9 +37,37 @@ Current version results in bootloop. This is run in emulation with qemu in espre
 
 ...
 
-What if instead the esp should send a post request to another container instead
+what is the easies way to simulate a microcontroller that you can also ping from the host machine
 
 ...
+
+What is the easiest way to emulate hardware device which has network connectivity. For example two docker container one is an edge device another is the main service.
+
+...
+
+Let step back and simplify how to forwad traffic from docker to qemu and the esp32
+
+...
+
+Give me a complete minimal main.c for ESP32-C3 QEMU OpenETH + DHCP
+
+...
+
+give a simplest example of device code to test connectivity
+
+...
+
+How would the qemu networking need to be change to attacht docker network?
+
+...
+
+create a better sample backend service the current one does not log anything at all to docker logs
+use fastapi for example
+
+...
+
+
+# First iteration of ESP32 simulation instructions
 
 ---
 # ESP32-C3 Simulator — Step-by-Step
@@ -182,7 +210,7 @@ root@...:/workspace#
 Check ESP-IDF:
 
 ```bash
-
+idf.py --version
 ```
 
 Check QEMU:
@@ -234,7 +262,6 @@ idf_component_register(
 
 ### `firmware/main/main.c`
 
-Dummy sample current main contains network connection testing.
 ```c
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
@@ -258,30 +285,14 @@ void app_main(void)
 }
 ```
 
-Output should looklike this. Eth is connected and trying to send requests.
+This is our fake temperature sensor.
+
+It produces:
 
 ```text
-I (1013) main_task: Started on CPU0
-I (1013) main_task: Calling app_main()
-I (1013) qemu_device: Starting QEMU Ethernet device
-I (1543) esp_eth.netif.netif_glue: 52:54:00:12:34:56
-I (1543) esp_eth.netif.netif_glue: ethernet attached to netif
-I (1643) qemu_device: Ethernet started
-E (1643) esp_eth: esp_eth_ioctl(533): add mac address to filter not supported
-E (1643) esp_eth.netif.netif_glue: eth_set_mac_filter(56): failed to add mac filter
-E (1643) esp_netif_lwip: Failed to add multicast filter for IPv4
-I (1643) qemu_device: Ethernet link up
-I (1643) qemu_device: Ethernet initialization complete
-I (1643) qemu_device: GET http://10.0.2.2:8080/health
-E (1643) esp-tls: [sock=54] connect() error: Host is unreachable
-E (1643) transport_base: Failed to open a new connection: 32772
-E (1643) HTTP_CLIENT: Connection failed, sock < 0
-E (1643) qemu_device: HTTP request failed: ESP_ERR_HTTP_CONNECT
-I (1643) main_task: Returned from app_main()
-I (2643) qemu_device: Got IP: 10.0.2.15
-I (2643) qemu_device: Gateway: 10.0.2.2
-I (2643) qemu_device: Netmask: 255.255.255.0
-I (2643) esp_netif_handlers: eth ip: 10.0.2.15, mask: 255.255.255.0, gw: 10.0.2.
+Temperature: 20.0 C
+Temperature: 20.5 C
+Temperature: 21.0 C
 ...
 ```
 
@@ -304,7 +315,7 @@ cd firmware
 Set the target:
 
 ```bash
-idf.py set-target esp32
+idf.py set-target esp32c3
 ```
 
 Build:
@@ -412,22 +423,21 @@ You should still be in:
 Run:
 
 ```bash
-qemu-system-xtensa \
+qemu-system-riscv32 \
     -nographic \
     -icount 3 \
-    -machine esp32 \
+    -machine esp32c3 \
     -drive file=build/flash.bin,if=mtd,format=raw
 ```
 
-Alternatively, from with network device:
+Alternatively, from `/workspace`:
 
 ```bash
-qemu-system-xtensa \
+qemu-system-riscv32 \
     -nographic \
     -icount 3 \
-    -machine esp32 \
-    -drive file=build/flash.bin,if=mtd,format=raw \
-    -nic user,model=open_eth,id=lo0
+    -machine esp32c3 \
+    -drive file=firmware/build/flash.bin,if=mtd,format=raw
 ```
 
 You should eventually see:
@@ -597,4 +607,3 @@ Temperature: 20.0 C
 ```
 
 Once this works, the next step is small: make the virtual ESP32 send its temperature to a Python HTTP server.
-
