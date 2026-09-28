@@ -3,6 +3,7 @@ import time
 
 from fastapi import FastAPI, Request
 from fastapi.responses import PlainTextResponse
+from pydantic import BaseModel
 
 logging.basicConfig(
     level=logging.INFO,
@@ -40,11 +41,20 @@ async def log_requests(request: Request, call_next):
 
     return response
 
+class DeviceData(BaseModel):
+    device_id: str
+    ts: int
+    temperature: int
+    humidity: int
 
 @app.get("/health", response_class=PlainTextResponse)
 async def health():
     return "OK\n"
 
+@app.post("/api/data", response_class=PlainTextResponse)
+async def data(data: DeviceData):
+    print("Received:", data)
+    return "DATA OK\n"
 
 @app.get("/", response_class=PlainTextResponse)
 async def root():
