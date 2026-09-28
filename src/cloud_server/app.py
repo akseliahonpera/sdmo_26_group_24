@@ -17,8 +17,8 @@ from cloud_server import db
 from cloud_server.utils import get_logger
 from cloud_server.models import Reading
 
-# src/certs/ by default. Override with TLS_CERT_FILE / TLS_KEY_FILE if needed.
-CERTS_DIR = Path(__file__).resolve().parents[1] / "certs"
+# src/cloud_server/certs/ by default. Override with TLS_CERT_FILE / TLS_KEY_FILE if needed.
+CERTS_DIR = Path(__file__).resolve().parent / "certs"
 CERT_FILE = os.environ.get("TLS_CERT_FILE", str(CERTS_DIR / "server.crt"))
 KEY_FILE = os.environ.get("TLS_KEY_FILE", str(CERTS_DIR / "server.key"))
 

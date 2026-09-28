@@ -1,5 +1,8 @@
 # Extra
-src/certs/**
+*.crt
+*.csr
+*.srl
+*.key
 
 edge_node.db
 

@@ -36,7 +36,7 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      - ../certs:/app/certs:ro
+      - ./certs:/app/cloud_server/certs:ro
 
 volumes:
   mysql_data:
