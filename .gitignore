@@ -1,4 +1,6 @@
 # Extra
+src/certs/**
+
 edge_node.db
 
 #esp generated

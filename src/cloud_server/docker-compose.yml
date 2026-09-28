@@ -9,19 +9,34 @@ services:
       MYSQL_USER: ${MYSQL_USER:-cloud_user}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
     ports:
-      # Bound to localhost only, so the DB isn't exposed to your network.
       - "127.0.0.1:${MYSQL_PORT:-3306}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     healthcheck:
-      # Uses TCP (127.0.0.1) so it only passes once the *real* server is up,
-      # not the temporary one MySQL runs during first-time initialisation.
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$$MYSQL_ROOT_PASSWORD --silent"]
       interval: 5s
       timeout: 5s
       retries: 20
       start_period: 30s
+
+  app:
+    build:
+      context: ..                      # src/
+      dockerfile: cloud_server/Dockerfile
+    container_name: cloud-app
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      MYSQL_HOST: mysql                # overrides 127.0.0.1 from .env
+      MYSQL_PORT: "3306"               # internal port, not the published one
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "5000:5000"
+    volumes:
+      - ../certs:/app/certs:ro
 
 volumes:
   mysql_data:
