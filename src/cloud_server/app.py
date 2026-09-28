@@ -13,6 +13,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from cloud_server import db
 from cloud_server.utils import get_logger
 from cloud_server.models import Reading
+import ssl
+
 
 log = get_logger("cloud")
 
@@ -129,10 +131,15 @@ def health():
         return jsonify({"status": "db_error"}), 503
 
 
+context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+context.minimum_version = ssl.TLSVersion.TLSv1_3 
+context.load_cert_chain('server.crt', 'server.key')
+#context.maximum_version = ssl.TLSVersion.TLSv1_3
+
 def main():
     db.init_db()
     log.info("Cloud server starting on :5000")
-    app.run(ssl_context=('server.crt', 'server.key'),host="0.0.0.0", port=5000, debug=False, threaded=True)
+    app.run(ssl_context=context,host="0.0.0.0", port=5000, debug=False, threaded=True)
 
 
 if __name__ == "__main__":

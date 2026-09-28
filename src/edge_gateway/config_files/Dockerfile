@@ -12,6 +12,6 @@ COPY certs/edge_gateway.crt  /etc/nginx/certs/edge_gateway.crt
 COPY certs/edge_gateway.key  /etc/nginx/certs/edge_gateway.key
 
 
-EXPOSE 80 7777 8443
+EXPOSE 7878 7777 8443
 
 CMD ["nginx", "-g", "daemon off;"]
