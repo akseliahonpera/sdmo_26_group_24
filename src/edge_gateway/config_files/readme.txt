@@ -20,3 +20,15 @@ COPY certs/edge_gateway.key  /etc/nginx/certs/edge_gateway.key //same here
 EXPOSE 80 7777 8443		//tell image that these ports are to be open, you must do this also when you spool up the container
 			
 CMD ["nginx", "-g", "daemon off;"] //launch parameters when the container starts (imagine launching Program from cmd, bash, etc.)
+
+
+
+Docker image Building, 
+--> root folder
+--> docker build -t "haluamasi nimi" .
+
+--> Go to docker desktop to run the image
+-->from options set the ports open 
+
+
+
