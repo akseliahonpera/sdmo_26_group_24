@@ -7,7 +7,7 @@ MySQL runs in Docker; the Flask app runs directly on your machine.
 
 ### Docker
 
-Note that you should have your certs in cloud_server/certs/
+Note that you should have your certs (server.crt and server.key) in cloud_server/certs/
 
 ```bash
 cd src/cloud_server
