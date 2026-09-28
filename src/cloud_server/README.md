@@ -5,7 +5,19 @@ MySQL runs in Docker; the Flask app runs directly on your machine.
 
 ## Required commands to start the cloud server
 
-Run these from the repository root:
+### Docker
+
+Note that you should have your certs (server.crt and server.key) in cloud_server/certs/
+
+```bash
+cd src/cloud_server
+docker compose up -d --build
+
+docker compose logs -f app
+```
+
+### Manual
+B) Run these from the repository root:
 
 ```bash
 # 1) Create the local environment file
@@ -16,7 +28,6 @@ python -m venv .venv
 source .venv/bin/activate
 
 # 3) Install dependencies
-pip install -r requirements.txt
 pip install -r src/cloud_server/requirements.txt
 
 # 4) Start MySQL (from the project root using the service folder)

@@ -1,4 +1,9 @@
 # Extra
+*.crt
+*.csr
+*.srl
+*.key
+
 edge_node.db
 
 #esp generated

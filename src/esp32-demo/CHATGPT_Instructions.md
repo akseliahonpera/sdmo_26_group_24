@@ -66,6 +66,14 @@ use fastapi for example
 
 ...
 
+Update the given ESP32 C code to post following json payload instead of get. 
+Payload: 
+{ 
+  "device_id": DEVICE_ID,         
+  "ts": current_time,         
+  "temperature": example_int,
+  "humidity": example_int,    
+}
 
 # First iteration of ESP32 simulation instructions
 

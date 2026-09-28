@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
+#include <stdlib.h>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -13,6 +15,11 @@
 #include "esp_eth_phy.h"
 
 static const char *TAG = "qemu_device";
+
+/*
+ * Device ID sent in the JSON payload.
+ */
+#define DEVICE_ID "qemu-device-001"
 
 static void on_eth_event(
     void *arg,
@@ -79,8 +86,10 @@ static void http_task(void *arg)
      * QEMU user-mode networking normally exposes the host as 10.0.2.2.
      *
      * Docker publishes the backend on the host's port 8080.
+     *
+     * Change /api/data to whatever POST endpoint your backend exposes.
      */
-    const char *url = "http://10.0.2.2:8080/health";
+    const char *url = "http://10.0.2.2:8080/api/data";
 
     esp_http_client_config_t config = {
         .url = url,
@@ -96,29 +105,110 @@ static void http_task(void *arg)
         return;
     }
 
-    while (1) {
-        ESP_LOGI(TAG, "GET %s", url);
+    /*
+     * Tell the server that we are sending JSON.
+     */
+    esp_http_client_set_header(
+        client,
+        "Content-Type",
+        "application/json"
+    );
 
+    while (1) {
+        /*
+         * Example sensor values.
+         * Replace these with your actual sensor readings.
+         */
+        int example_int_temperature = 10 + (rand() % 91);;
+        int example_int_humidity = 10 + (rand() % 91);
+
+        /*
+         * Current Unix timestamp.
+         */
+        time_t current_time = time(NULL);
+
+        /*
+         * Build JSON payload:
+         *
+         * {
+         *     "device_id": "qemu-device-001",
+         *     "ts": 1234567890,
+         *     "temperature": 25,
+         *     "humidity": 60
+         * }
+         */
+        char json_payload[256];
+
+        snprintf(
+            json_payload,
+            sizeof(json_payload),
+            "{"
+                "\"device_id\":\"%s\","
+                "\"ts\":%lld,"
+                "\"temperature\":%d,"
+                "\"humidity\":%d"
+            "}",
+            DEVICE_ID,
+            (long long)current_time,
+            example_int_temperature,
+            example_int_humidity
+        );
+
+        ESP_LOGI(
+            TAG,
+            "POST %s",
+            url
+        );
+
+        ESP_LOGI(
+            TAG,
+            "Payload: %s",
+            json_payload
+        );
+
+        /*
+         * Configure POST request.
+         */
+        esp_http_client_set_method(
+            client,
+            HTTP_METHOD_POST
+        );
+
+        esp_http_client_set_post_field(
+            client,
+            json_payload,
+            strlen(json_payload)
+        );
+
+        /*
+         * Send HTTP POST request.
+         */
         esp_err_t err = esp_http_client_perform(client);
 
         if (err == ESP_OK) {
-            int status = esp_http_client_get_status_code(client);
-            int length = esp_http_client_get_content_length(client);
+            int status =
+                esp_http_client_get_status_code(client);
+
+            int length =
+                esp_http_client_get_content_length(client);
 
             ESP_LOGI(
                 TAG,
-                "HTTP status=%d content_length=%d",
+                "HTTP POST status=%d content_length=%d",
                 status,
                 length
             );
         } else {
             ESP_LOGE(
                 TAG,
-                "HTTP request failed: %s",
+                "HTTP POST request failed: %s",
                 esp_err_to_name(err)
             );
         }
 
+        /*
+         * Send every 5 seconds.
+         */
         vTaskDelay(pdMS_TO_TICKS(5000));
     }
 
@@ -162,13 +252,17 @@ void app_main(void)
     /*
      * OpenCores Ethernet MAC provided by QEMU.
      */
-    eth_mac_config_t mac_config = ETH_MAC_DEFAULT_CONFIG();
+    eth_mac_config_t mac_config =
+        ETH_MAC_DEFAULT_CONFIG();
 
     esp_eth_mac_t *mac =
         esp_eth_mac_new_openeth(&mac_config);
 
     if (mac == NULL) {
-        ESP_LOGE(TAG, "Failed to create OpenCores Ethernet MAC");
+        ESP_LOGE(
+            TAG,
+            "Failed to create OpenCores Ethernet MAC"
+        );
         abort();
     }
 
@@ -178,15 +272,20 @@ void app_main(void)
      *
      * The OpenETH driver handles the emulated MAC directly.
      */
-    eth_phy_config_t phy_config = ETH_PHY_DEFAULT_CONFIG();
+    eth_phy_config_t phy_config =
+        ETH_PHY_DEFAULT_CONFIG();
 
     esp_eth_phy_t *phy =
         esp_eth_phy_new_generic(&phy_config);
 
     if (phy == NULL) {
-        ESP_LOGE(TAG, "Failed to create generic Ethernet PHY");
+        ESP_LOGE(
+            TAG,
+            "Failed to create generic Ethernet PHY"
+        );
         abort();
     }
+
     /* QEMU doesn't emulate PHY speed, so accept any value */
     esp_eth_config_t eth_config =
         ETH_DEFAULT_CONFIG(mac, phy);
@@ -211,7 +310,10 @@ void app_main(void)
         esp_eth_start(eth_handle)
     );
 
-    ESP_LOGI(TAG, "Ethernet initialization complete");
+    ESP_LOGI(
+        TAG,
+        "Ethernet initialization complete"
+    );
 
     xTaskCreate(
         http_task,

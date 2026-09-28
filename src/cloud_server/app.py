@@ -5,6 +5,9 @@ Run from the repository root (so that `common.py` in the root is importable):
     python -m cloud_server.app
 """
 import time
+import ssl
+import os
+from pathlib import Path
 
 from flask import Flask, jsonify, request
 from sqlalchemy import func, select, text
@@ -15,6 +18,11 @@ from cloud_server.utils import get_logger
 from cloud_server.models import Reading
 import ssl
 
+
+# src/cloud_server/certs/ by default. Override with TLS_CERT_FILE / TLS_KEY_FILE if needed.
+CERTS_DIR = Path(__file__).resolve().parent / "certs"
+CERT_FILE = os.environ.get("TLS_CERT_FILE", str(CERTS_DIR / "server.crt"))
+KEY_FILE = os.environ.get("TLS_KEY_FILE", str(CERTS_DIR / "server.key"))
 
 log = get_logger("cloud")
 
@@ -131,15 +139,31 @@ def health():
         return jsonify({"status": "db_error"}), 503
 
 
-context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-context.minimum_version = ssl.TLSVersion.TLSv1_3 
-context.load_cert_chain('server.crt', 'server.key')
-#context.maximum_version = ssl.TLSVersion.TLSv1_3
 
 def main():
     db.init_db()
     log.info("Cloud server starting on :5000")
-    app.run(ssl_context=context,host="0.0.0.0", port=5000, debug=False, threaded=True)
+
+    # Create a TLS server context.
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+
+    # Allow TLS 1.2 only.
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
+    context.maximum_version = ssl.TLSVersion.TLSv1_2
+
+    # Load the server certificate and private key.
+    context.load_cert_chain(
+        certfile=CERT_FILE,
+        keyfile=KEY_FILE,
+    )
+
+    app.run(
+        ssl_context=context,
+        host="0.0.0.0",
+        port=5000,
+        debug=False,
+        threaded=True
+    )
 
 
 if __name__ == "__main__":
