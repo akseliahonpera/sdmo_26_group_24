@@ -132,7 +132,7 @@ def health():
 def main():
     db.init_db()
     log.info("Cloud server starting on :5000")
-    app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)
+    app.run(ssl_context=('server.crt', 'server.key'),host="0.0.0.0", port=5000, debug=False, threaded=True)
 
 
 if __name__ == "__main__":
