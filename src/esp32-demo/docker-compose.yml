@@ -1,0 +1,16 @@
+services:
+  main-service:
+    build: ./backend
+    ports:
+      - "8080:8080"
+  esp32:
+    build: .
+    volumes:
+      - ./firmware:/workspace/firmware
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - main-service
