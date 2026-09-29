@@ -58,8 +58,6 @@ def insert_readings_ignore_duplicates(session, rows: list[dict]) -> None:
     """
     if not rows:
         return
-    # The ORM has no portable "upsert", so this uses MySQL's insert() construct
-    # on the model's table (a plain executemany), still inside the ORM session.
     stmt = mysql_insert(Reading.__table__)
     stmt = stmt.on_duplicate_key_update(device_id=stmt.inserted.device_id)
     session.execute(stmt, rows)

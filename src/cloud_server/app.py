@@ -1,6 +1,6 @@
 """Cloud server: receives readings from gateways, stores & aggregates them.
 
-Run from the repository root (so that `common.py` in the root is importable):
+Run from the repository root
 
     python -m cloud_server.app
 """
@@ -43,7 +43,7 @@ def parse_reading(r, received_at):
     """Convert one reading from the payload to a row dict.
 
     Raises KeyError / TypeError / ValueError if a field is missing or not
-    a plain number, same as the checks the original SQLite version did.
+    a plain number.
     """
     return {
         "edge_id": int(r["id"]),
