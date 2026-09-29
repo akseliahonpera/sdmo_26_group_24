@@ -10,6 +10,9 @@ MySQL runs in Docker; the Flask app runs directly on your machine.
 Note that you should have your certs (server.crt and server.key) in cloud_server/certs/
 
 ```bash
+# Create the local environment file (update its values if deemed necessary)
+cp src/cloud_server/.env.example src/cloud_server/.env
+
 cd src/cloud_server
 docker compose up -d --build
 
