@@ -19,17 +19,12 @@ class Reading(Base):
     __tablename__ = "readings"
     __table_args__ = {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"}
 
-    # Binary collation keeps device IDs case-sensitive (as they were in SQLite);
-    # MySQL's default collation would treat "Dev-A" and "dev-a" as the same key.
     device_id: Mapped[str] = mapped_column(
-        String(64, collation="utf8mb4_bin"), primary_key=True
+        String(64), primary_key=True
     )
-    # Epoch milliseconds, set by the edge node. BIGINT: it overflows a 32-bit INT.
     ts: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
 
-    # Row id in the edge node's local database (informational).
     edge_id: Mapped[Optional[int]] = mapped_column(BigInteger)
     temperature: Mapped[float] = mapped_column(Double)
     humidity: Mapped[float] = mapped_column(Double)
-    # Epoch milliseconds, set by the cloud server when the batch arrives.
     received_at: Mapped[int] = mapped_column(BigInteger)
