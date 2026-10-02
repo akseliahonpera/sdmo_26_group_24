@@ -1,0 +1,65 @@
+services:
+  esp32:
+    build: ./esp32-demo/
+    volumes:
+      - ./esp32-demo/firmware:/workspace/firmware
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - edge-gateway
+    networks:
+      - internal
+  edge-gateway:
+    build: ./edge_gateway/config_files/
+    expose:
+      - "80"
+      - "7777"
+      - "8443"
+    networks:
+      - internal
+  cloud-app:
+    build: 
+      context: .                      # src/
+      dockerfile: cloud_server/Dockerfile
+    container_name: cloud-app
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      MYSQL_HOST: mysql                # overrides 127.0.0.1 from .env
+      MYSQL_PORT: "3306"               # internal port, not the published one
+    depends_on:
+      cloud-mysql:
+        condition: service_healthy
+    ports:
+      - "5000:5000"
+    volumes:
+      - .cloud_server/certs:/app/cloud_server/certs:ro
+  cloud-mysql:
+    image: mysql:8.4
+    container_name: cloud-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-cloud_db}
+      MYSQL_USER: ${MYSQL_USER:-cloud_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+volumes:
+  mysql_data:
+
+networks:
+  internal:
