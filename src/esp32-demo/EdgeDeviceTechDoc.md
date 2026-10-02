@@ -11,7 +11,15 @@ This .md file contains the description on how the esp32-demo setup was built.
 Shared promts were used to generate most of the content in esp32-demo. 
 Development was done in multiple session and some steps required a lot of iteration so not all of those promts are included.
 
+## Development
+
+ESP simulation was developed step by step focus on one part of the full end product. First goal was to produce a containerized ESP32 emulation. This step was iterated until we successfully flashed firmaware to the emulated device and the code would run. Next goal was to get an request to go to an external system. For this a dummy [server](./backend/server.py) was create as the target system for the edge device. Again this was iterated until we successfully got a HTTP call to reach the dummy server. This was verified from the docker container logs, each request was logged on both ends.
+
+## Validation
+ESP simulation was validated via E2E testing. A minimal example system was built in which the edge device is capable of sending a request to an external service. The final setup was validated by multiple team members on their devices.
+
 # Prompting ChatGPT
+```text
 
 Create a containerized esp32 simulator and a script that flashes wanted software to the simulated device
 
@@ -74,6 +82,8 @@ Payload:
   "temperature": example_int,
   "humidity": example_int,    
 }
+
+```
 
 # First iteration of ESP32 simulation instructions
 
