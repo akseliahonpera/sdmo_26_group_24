@@ -2,3 +2,5 @@ flask>=3.0
 mysql-connector-python>=9.0
 python-dotenv>=1.0
 requests>=2.31
+cryptography>=50.0
+kyber-py>=1.2.0

@@ -14,6 +14,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.exc import SQLAlchemyError
 
 from cloud_server import db
+from cloud_server import kem
 from cloud_server.utils import get_logger
 from cloud_server.models import Reading
 import ssl
@@ -23,6 +24,10 @@ import ssl
 CERTS_DIR = Path(__file__).resolve().parent / "certs"
 CERT_FILE = os.environ.get("TLS_CERT_FILE", str(CERTS_DIR / "server.crt"))
 KEY_FILE = os.environ.get("TLS_KEY_FILE", str(CERTS_DIR / "server.key"))
+
+KEM_SEED_FILE = os.environ.get("KEM_SEED_FILE", str(CERTS_DIR / "kem.seed"))
+EK, DK = kem.load_or_create_keypair(KEM_SEED_FILE)
+KID = kem.key_id(EK)
 
 log = get_logger("cloud")
 
@@ -54,16 +59,13 @@ def parse_reading(r, received_at):
         "received_at": received_at,
     }
 
-
-@app.route("/api/ingest", methods=["POST"])
-def ingest():
-    payload = request.get_json(silent=True)
+# helper function to ingest payload, used by both /api/ingest and /mlkem/ingest
+def ingest_payload(payload):
     if not isinstance(payload, dict):
         return jsonify({"error": "bad payload"}), 400
     readings = payload.get("readings", [])
     if not isinstance(readings, list):
         return jsonify({"error": "bad payload"}), 400
-
     received_at = int(time.time() * 1000)
     rows = []
     for r in readings:
@@ -71,14 +73,30 @@ def ingest():
             rows.append(parse_reading(r, received_at))
         except (KeyError, TypeError, ValueError) as e:
             log.warning("Skipping malformed reading: %s", e)
-
-    # One transaction per batch: committed on success, rolled back on error.
     with db.SessionLocal.begin() as session:
         db.insert_readings_ignore_duplicates(session, rows)
-
     log.info("Ingested %d/%d readings", len(rows), len(readings))
     return jsonify({"accepted": len(rows)})
 
+# for tls-only ingestion, the payload is already decrypted by the client, 
+# so we can just call ingest_payload directly
+@app.route("/api/ingest", methods=["POST"])
+def ingest():
+    return ingest_payload(request.get_json(silent=True))
+
+# for ml-kem ingestion, the payload is encrypted in a KEM envelope,
+#  so we need to decrypt it first
+@app.route("/api/kem/ingest", methods=["POST"])
+def kem_ingest():
+    env = request.get_json(silent=True)
+    if not isinstance(env, dict):
+        return jsonify({"error": "bad payload"}), 400
+    try:
+        payload = kem.open_envelope(DK, KID, env)
+    except kem.EnvelopeError as e:
+        log.warning("Rejected KEM envelope: %s", e)
+        return jsonify({"error": "bad envelope"}), 400
+    return ingest_payload(payload)
 
 @app.route("/api/stats")
 def stats():
