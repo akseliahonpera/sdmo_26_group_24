@@ -183,6 +183,8 @@ Start socat first to forward traffic to the dummy backend service
 
 ```bash
 socat TCP-LISTEN:8080,bind=0.0.0.0,reuseaddr,fork TCP:main-service:8080 &
+
+socat TCP-LISTEN:8080,bind=0.0.0.0,reuseaddr,fork TCP:edge-gateway:80 &
 ```
 
 Depending on the final setup change the fork target accordingly
