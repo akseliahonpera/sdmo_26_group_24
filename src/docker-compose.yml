@@ -13,6 +13,7 @@ services:
     expose:
       - "80"
       - "7777"
+      - "7878"
       - "8443"
     depends_on:
       - cloud-app
