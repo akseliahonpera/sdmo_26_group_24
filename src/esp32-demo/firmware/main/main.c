@@ -89,7 +89,7 @@ static void http_task(void *arg)
      *
      * Change /api/data to whatever POST endpoint your backend exposes.
      */
-    const char *url = "http://10.0.2.2:8080/api/data";
+    const char *url = "http://10.0.2.2:8080/api/ingest";
 
     esp_http_client_config_t config = {
         .url = url,
