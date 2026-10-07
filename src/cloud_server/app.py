@@ -4,6 +4,8 @@ Run from the repository root
 
     python -m cloud_server.app
 """
+
+import math
 import time
 import ssl
 import os
@@ -45,7 +47,7 @@ def parse_reading(r, received_at):
     Raises KeyError / TypeError / ValueError if a field is missing or not
     a plain number.
     """
-    return {
+    row = {
         "edge_id": int(r["id"]),
         "device_id": str(r["device_id"]),
         "ts": int(r["ts"]),
@@ -53,6 +55,9 @@ def parse_reading(r, received_at):
         "humidity": float(r["humidity"]),
         "received_at": received_at,
     }
+    if not (math.isfinite(row["temperature"]) and math.isfinite(row["humidity"])):
+        raise ValueError("temperature/humidity must be finite")
+    return row
 
 
 @app.route("/api/ingest", methods=["POST"])
