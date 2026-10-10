@@ -13,11 +13,20 @@ services:
     expose:
       - "80"
       - "7777"
-      - "7878"
+      - "7879"
       - "8443"
     depends_on:
       - cloud-app
       - esp32
+  ml-kem-proxy:
+    build: ./ml_kem
+    environment:
+      EDGE_KEM_URL: http://edge-gateway:7879
+      # EDGE_TLS_URL and PROXY_PORT now default to 7777, so nothing else is needed
+    ports:
+      - "7777:7777"      # host test access to the proxy
+    depends_on:
+      - edge-gateway
   cloud-app:
     build: 
       context: .                      # src/
