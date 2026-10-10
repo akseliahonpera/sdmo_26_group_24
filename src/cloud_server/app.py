@@ -55,8 +55,8 @@ def parse_reading(r, received_at):
         "humidity": float(r["humidity"]),
         "received_at": received_at,
     }
-    if not (math.isfinite(row["temperature"]) and math.isfinite(row["humidity"])):
-        raise ValueError("temperature/humidity must be finite")
+    # if not (math.isfinite(row["temperature"]) and math.isfinite(row["humidity"])):
+    #     raise ValueError("temperature/humidity must be finite")
     return row
 
 
