@@ -29,12 +29,15 @@ from kyber_py.ml_kem import ML_KEM_768 as KEM
 
 import base64
 
+import itertools
+_seq = itertools.count(int(time.time()))   # unique, increasing ids
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s proxy: %(message)s")
 log = logging.getLogger("proxy")
 
 EDGE_HOST = os.environ.get("EDGE_HOST", "edge-gateway")
 EDGE_KEM_URL = os.environ.get("EDGE_KEM_URL", f"http://{EDGE_HOST}:7879")   # envelope is already encrypted
-EDGE_TLS_URL = os.environ.get("EDGE_TLS_URL", f"https://{EDGE_HOST}:7777")
+EDGE_TLS_URL = os.environ.get("EDGE_TLS_URL", f"http://{EDGE_HOST}:7777")
 TLS_VERIFY = os.environ.get("EDGE_CA_FILE", True)        # path to CA/cert, or True for system CAs
 PINNED_EK_SHA256 = os.environ.get("KEM_EK_SHA256")       # optional hex pin of the server public key
 LISTEN_PORT = int(os.environ.get("PROXY_PORT", "7777"))
@@ -162,6 +165,22 @@ def ingest_with_failover(body: bytes, headers: dict):
     return tls_request("POST", "/api/ingest", body, headers)   # fallback, nothing is lost
 
 
+def normalize(body: bytes) -> bytes:
+    """Accept a flat reading, a list, or the full {"readings": [...]} shape."""
+    try:
+        data = json.loads(body)
+    except ValueError:
+        return body
+    if isinstance(data, dict) and "readings" not in data:
+        data = {"readings": [data]}
+    elif isinstance(data, list):
+        data = {"readings": data}
+    if isinstance(data, dict) and isinstance(data.get("readings"), list):
+        for r in data["readings"]:
+            if isinstance(r, dict) and "id" not in r:
+                r["id"] = next(_seq)
+    return json.dumps(data).encode()
+
 # --------------------------------------------------------------------------- local HTTP face for the ESP32
 class Handler(BaseHTTPRequestHandler):
     def _reply(self, status, body, ctype):
@@ -176,7 +195,7 @@ class Handler(BaseHTTPRequestHandler):
         body = self.rfile.read(n) if n else b""
         try:
             if method == "POST" and self.path.split("?")[0] == "/api/ingest":
-                self._reply(*ingest_with_failover(body, self.headers))
+                self._reply(*ingest_with_failover(normalize(body), self.headers))
             else:  # GETs and everything else: plain HTTPS passthrough
                 self._reply(*tls_request(method, self.path, body, self.headers))
         except Exception as e:

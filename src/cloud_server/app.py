@@ -88,21 +88,20 @@ def ingest():
 def kem_public_key():
     return jsonify({"alg": "ML-KEM-768", "ek": kem.b64e(kem.EK)})
 
-
 @app.route("/api/kem/ingest", methods=["POST"])
 def kem_ingest():
     env = request.get_json(silent=True)
     try:
         plaintext, s2c, ct = kem.open_envelope(env)
         payload = json.loads(plaintext)
-        if not isinstance(payload, dict):
-            raise ValueError
+        readings = payload.get("readings", [])
+        if not isinstance(readings, list) or not all(isinstance(r, dict) for r in readings):
+            raise ValueError("readings must be a list of objects")
     except Exception:
         return jsonify({"error": "bad envelope"}), 400   # deliberately vague
-    accepted = store_readings(payload)
+    accepted = store_readings(readings)
     reply = json.dumps({"accepted": accepted}).encode()
     return jsonify(kem.seal_response(s2c, ct, reply))
-
 
 @app.route("/api/stats")
 def stats():
