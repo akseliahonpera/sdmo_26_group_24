@@ -21,7 +21,7 @@ services:
   ml-kem-proxy:
     build: ./ml-kem-proxy/
     environment:
-      EDGE_KEM_URL: http://edge-gateway:9999 # TESTING FALLBACK
+      EDGE_KEM_URL: http://edge-gateway:7879
       # EDGE_TLS_URL and PROXY_PORT now default to 7777, so nothing else is needed
     ports:
       - "7777:7777"      # host test access to the proxy
