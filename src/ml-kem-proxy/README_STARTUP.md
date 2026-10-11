@@ -69,7 +69,6 @@ source /opt/esp/idf/export.sh
 cd firmware
 pkill socat
 nohup socat TCP-LISTEN:8080,bind=0.0.0.0,reuseaddr,fork TCP:ml-kem-proxy:7777 > /tmp/socat.log 2>&1 &
-ss -ltnp | grep 8080
 ```
 
 The last command should show a listener on port 8080. Only ONE `socat` is needed.
