@@ -170,9 +170,9 @@ def main():
     # Create a TLS server context.
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 
-    # Allow TLS 1.2 only.
-    context.minimum_version = ssl.TLSVersion.TLSv1_2
-    context.maximum_version = ssl.TLSVersion.TLSv1_2
+    # Allow TLS 1.3 only.
+    context.minimum_version = ssl.TLSVersion.TLSv1_3
+    #context.maximum_version = ssl.TLSVersion.TLSv1_3
 
     # Load the server certificate and private key.
     context.load_cert_chain(
