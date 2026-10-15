@@ -9,16 +9,16 @@ import math
 import time
 import ssl
 import os
+import json
 from pathlib import Path
 
 from flask import Flask, jsonify, request
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import SQLAlchemyError
 
-from cloud_server import db
+from cloud_server import db, kem
 from cloud_server.utils import get_logger
 from cloud_server.models import Reading
-import ssl
 
 
 # src/cloud_server/certs/ by default. Override with TLS_CERT_FILE / TLS_KEY_FILE if needed.
@@ -59,16 +59,7 @@ def parse_reading(r, received_at):
         raise ValueError("temperature/humidity must be finite")
     return row
 
-
-@app.route("/api/ingest", methods=["POST"])
-def ingest():
-    payload = request.get_json(silent=True)
-    if not isinstance(payload, dict):
-        return jsonify({"error": "bad payload"}), 400
-    readings = payload.get("readings", [])
-    if not isinstance(readings, list):
-        return jsonify({"error": "bad payload"}), 400
-
+def store_readings(readings):
     received_at = int(time.time() * 1000)
     rows = []
     for r in readings:
@@ -82,8 +73,35 @@ def ingest():
         db.insert_readings_ignore_duplicates(session, rows)
 
     log.info("Ingested %d/%d readings", len(rows), len(readings))
-    return jsonify({"accepted": len(rows)})
+    return len(rows)
 
+
+@app.route("/api/ingest", methods=["POST"])
+def ingest():
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict) or not isinstance(payload.get("readings", []), list):
+        return jsonify({"error": "bad payload"}), 400
+    return jsonify({"accepted": store_readings(payload.get("readings", []))})
+
+
+@app.route("/api/kem/public-key")
+def kem_public_key():
+    return jsonify({"alg": "ML-KEM-768", "ek": kem.b64e(kem.EK)})
+
+@app.route("/api/kem/ingest", methods=["POST"])
+def kem_ingest():
+    env = request.get_json(silent=True)
+    try:
+        plaintext, s2c, ct = kem.open_envelope(env)
+        payload = json.loads(plaintext)
+        readings = payload.get("readings", [])
+        if not isinstance(readings, list) or not all(isinstance(r, dict) for r in readings):
+            raise ValueError("readings must be a list of objects")
+    except Exception:
+        return jsonify({"error": "bad envelope"}), 400   # deliberately vague
+    accepted = store_readings(readings)
+    reply = json.dumps({"accepted": accepted}).encode()
+    return jsonify(kem.seal_response(s2c, ct, reply))
 
 @app.route("/api/stats")
 def stats():
@@ -152,9 +170,9 @@ def main():
     # Create a TLS server context.
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 
-    # Allow TLS 1.2 only.
-    context.minimum_version = ssl.TLSVersion.TLSv1_2
-    context.maximum_version = ssl.TLSVersion.TLSv1_2
+    # Allow TLS 1.3 only.
+    context.minimum_version = ssl.TLSVersion.TLSv1_3
+    #context.maximum_version = ssl.TLSVersion.TLSv1_3
 
     # Load the server certificate and private key.
     context.load_cert_chain(
